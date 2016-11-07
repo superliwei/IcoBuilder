@@ -3,7 +3,105 @@
 	<head>
 		<meta charset="UTF-8">
 		<title></title>
+		<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+		<script type="text/javascript" src="libs/jquery/jquery-2.1.1.min.js" ></script>
+		<script>if (window.module) module = window.module;</script>
+		<style>
+			html,body
+			{
+				margin: 0;
+				display: flex;
+				flex-direction: column;
+				height: 100%;
+				font-family: "微软雅黑";
+			}
+			.title
+			{
+				font-size: 20px;
+				padding: 10px;
+				background-color: rgba(0,0,0,0.6);
+				color: rgba(255,255,255,1);
+			}
+			textarea
+			{
+				margin: 5px;
+				margin-bottom: 0px;
+			}
+			.footer
+			{
+				padding: 10px;
+			}
+			
+			.footer div
+			{
+				float: left;
+				margin-top: 10px;
+			}
+			.footer button
+			{
+				line-height: 30px;
+				font-size: 15px;
+				float: right;
+			}
+		</style>
+		<script>
+			const fs = require('fs');
+			const toIco = require('to-ico');
+			const electron = require('electron');
+			const dialog = electron.remote.dialog;
+			
+			$(function(){
+				$(document).on("dragleave drop dragenter dragover",function(e){
+			   		e.preventDefault();
+			   	});
+				var bt = $("button");
+				bt.click(function(e){
+					var str = ta.val();
+					var arr = str.split("\n");
+					var files = [];
+					var len = arr.length;
+					for(var i=0;i<len;i++)
+					{
+						files.push(fs.readFileSync(arr[i]));
+					}
+					toIco(files).then(function(buff){
+						dialog.showSaveDialog({
+							filters : [{name: 'Ico File', extensions: ['ico']}]
+						},function(filename){
+							if(filename == undefined)return;
+							fs.writeFileSync(filename, buff);
+						});
+					});
+				});
+				var ta = $("textarea");
+				ta.on("dragover",function(e){
+					ta.css("border","solid 2px #ff0000");
+				});
+				ta.on("dragleave",function(e){
+					ta.css("border","");
+				});
+				ta.on("drop",function(e){
+					e.preventDefault();
+					var fileList = e.originalEvent.dataTransfer.files;
+					var len = fileList.length;
+					var str = "";
+					for(var i=0;i<len;i++)
+					{
+						var file = fileList[i];
+						str += file.path;
+						if(i < len-1)str += "\n";
+					}
+					ta.val(str);
+				});
+			});
+		</script>
 	</head>
 	<body>
+		<div class="title">IcoBuilder</div>
+		<textarea style="flex-grow: 1;"></textarea>
+		<div class="footer">
+			<div>图标尺寸:[16,24,32,48,64,128,256]</div>
+			<button>生成ico</button>
+		</div>
 	</body>
 </html>
