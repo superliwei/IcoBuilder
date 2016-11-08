@@ -14,6 +14,7 @@
 				flex-direction: column;
 				height: 100%;
 				font-family: "微软雅黑";
+				overflow: hidden;
 			}
 			.title
 			{
@@ -22,26 +23,71 @@
 				background-color: rgba(0,0,0,0.6);
 				color: rgba(255,255,255,1);
 			}
-			textarea
+			.content
 			{
+				flex-grow: 1;
 				margin: 5px;
 				margin-bottom: 0px;
+				border: solid 1px #C3D9FF;
+				display: flex;
+				flex-wrap: wrap;
+				overflow: auto;
 			}
 			.footer
 			{
 				padding: 10px;
-			}
-			
-			.footer div
-			{
-				float: left;
-				margin-top: 10px;
 			}
 			.footer button
 			{
 				line-height: 30px;
 				font-size: 15px;
 				float: right;
+				padding-left: 20px;
+				padding-right: 20px;
+			}
+			
+			.footer input
+			{
+				width: 20px;
+				height: 20px;
+				float: left;
+				margin-top: 6px;
+			}
+			
+			.footer label
+			{
+				float: left;
+				margin-top: 6px;
+			}
+			
+			.sizeItem
+			{
+				display: flex;
+				flex-direction: column;
+				padding: 10px;
+				align-items: center;
+			}
+			
+			.sizeItem.disabled
+			{
+				pointer-events: none;
+				opacity: 0.5;
+			}
+			
+			.sizeItem .imageBox
+			{
+				border: solid 1px rgba(0,0,0,0.1);
+			}
+			
+			.sizeItem .imageBox.over
+			{
+				border: solid 2px #0000ff;
+			}
+			
+			.sizeItem .label
+			{
+				text-align: center;
+				padding: 3px;
 			}
 		</style>
 		<script>
@@ -54,53 +100,134 @@
 				$(document).on("dragleave drop dragenter dragover",function(e){
 			   		e.preventDefault();
 			   	});
-				var bt = $("button");
-				bt.click(function(e){
-					var str = ta.val();
-					var arr = str.split("\n");
-					var files = [];
-					var len = arr.length;
-					for(var i=0;i<len;i++)
-					{
-						files.push(fs.readFileSync(arr[i]));
-					}
-					toIco(files).then(function(buff){
-						dialog.showSaveDialog({
-							filters : [{name: 'Ico File', extensions: ['ico']}]
-						},function(filename){
-							if(filename == undefined)return;
+			   	
+			   	var submitBt = $("button");
+			   	submitBt.attr("disabled","disabled");
+			   	
+			   	var cb = $("input[type='checkbox']");
+			   	cb.on("change",function(e){
+			   		useAutoGenerate(this.checked);
+			   	});
+			   	
+			   	var imageBox = $(".sizeItem .imageBox");
+			   	imageBox.on("dragover dragleave drop",function(e){
+			   		$(this)[e.type == "dragover" ? "addClass" : "removeClass"]("over");
+			   		if(e.type == "drop")
+			   		{
+			   			var file = e.originalEvent.dataTransfer.files[0];
+			   			var img = new Image();
+			   			img.src = file.path;
+			   			var _box = this;
+			   			img.onload = function(e)
+			   			{
+			   				var tw = parseInt($(_box).css("width"));
+			   				var th = parseInt($(_box).css("height"));
+			   				if(tw == img.width && th == img.height)
+			   				{
+			   					$(_box).css("background-image","url("+img.src+")");
+			   					$(_box).data("file",file);
+			   					checkState();
+			   				}
+			   				else
+			   				{
+			   					alert("图片的尺寸应该是 : "+tw+" * "+th+" !");
+			   				}
+			   			}
+			   		}
+			   	});
+			   	
+			   	function useAutoGenerate(bol)
+			   	{
+			   		cb.attr("checked",bol ? "checked" : false);
+			   		imageBox.each(function(i){
+			   			if(i > 0)$(this).parent()[bol ? "addClass" : "removeClass"]("disabled");
+			   		});
+			   		checkState();
+			   	}
+			   	
+			   	function checkState()
+			   	{
+			   		var ready = true;
+			   		var checked = cb.get(0).checked;
+			   		if(checked)
+			   		{
+			   			if(imageBox.eq(0).data("file") == undefined)ready = false;
+			   		}
+			   		else
+			   		{
+				   		imageBox.each(function(){
+				   			if($(this).data("file") == undefined)ready = false;
+				   		});
+			   		}
+			   		submitBt.attr("disabled",ready ? false : "disabled");
+			   	}
+			   	
+			   	submitBt.click(function(e){
+			   		dialog.showSaveDialog({
+						filters : [{name: 'Ico File', extensions: ['ico']}]
+					},function(filename){
+						if(filename == undefined)return;
+						var checked = cb.get(0).checked;
+						var files = [];
+						var options;
+						if(checked)
+						{
+							files.push(fs.readFileSync(imageBox.eq(0).data("file").path));
+							options = {
+								resize : true,
+								sizes : [16, 24, 32, 48, 64, 128, 256]
+							};
+						}
+						else
+						{
+							imageBox.each(function(){
+								files.push(fs.readFileSync($(this).data("file").path));
+							});
+						}
+						toIco(files,options).then(function(buff){
 							fs.writeFileSync(filename, buff);
 						});
 					});
-				});
-				var ta = $("textarea");
-				ta.on("dragover",function(e){
-					ta.css("border","solid 2px #ff0000");
-				});
-				ta.on("dragleave",function(e){
-					ta.css("border","");
-				});
-				ta.on("drop",function(e){
-					e.preventDefault();
-					var fileList = e.originalEvent.dataTransfer.files;
-					var len = fileList.length;
-					var str = "";
-					for(var i=0;i<len;i++)
-					{
-						var file = fileList[i];
-						str += file.path;
-						if(i < len-1)str += "\n";
-					}
-					ta.val(str);
-				});
+			   	});
+			   	
+			   	useAutoGenerate(true);
 			});
 		</script>
 	</head>
 	<body>
 		<div class="title">IcoBuilder</div>
-		<textarea style="flex-grow: 1;"></textarea>
+		<div class="content">
+			<div class="sizeItem">
+				<div class="imageBox" style="width: 256px; height: 256px;"></div>
+				<div class="label">256*256</div>
+			</div>
+			<div class="sizeItem">
+				<div class="imageBox" style="width: 128px; height: 128px;"></div>
+				<div class="label">128*128</div>
+			</div>
+			<div class="sizeItem">
+				<div class="imageBox" style="width: 64px; height: 64px;"></div>
+				<div class="label">64*64</div>
+			</div>
+			<div class="sizeItem">
+				<div class="imageBox" style="width: 48px; height: 48px;"></div>
+				<div class="label">48*48</div>
+			</div>
+			<div class="sizeItem">
+				<div class="imageBox" style="width: 32px; height: 32px;"></div>
+				<div class="label">32*32</div>
+			</div>
+			<div class="sizeItem">
+				<div class="imageBox" style="width: 24px; height: 24px;"></div>
+				<div class="label">24*24</div>
+			</div>
+			<div class="sizeItem">
+				<div class="imageBox" style="width: 16px; height: 16px;"></div>
+				<div class="label">16*16</div>
+			</div>
+		</div>
 		<div class="footer">
-			<div>图标尺寸:[16,24,32,48,64,128,256]</div>
+			<input type="checkbox" /><label>自动生成其它尺寸</label>
 			<button>生成ico</button>
 		</div>
 	</body>
