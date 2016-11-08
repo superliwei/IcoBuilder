@@ -10,6 +10,6 @@
   "devDependencies": {
     "electron-prebuilt": "^1.2.0",
     "electron-packager": "~7.7.0",
-    "to-ico" : ""
+    "to-ico" : "*"
   }
 }
